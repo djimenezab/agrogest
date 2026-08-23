@@ -3,6 +3,12 @@
 Control de parcelas, producción, gastos e ingresos para viña y almendros.
 App web estática (sin frameworks, sin build): HTML + CSS + JS puro.
 
+- **App (pública, sin datos):** https://djimenezab.github.io/agrogest/ — código de la
+  app en el repo público [agrogest](https://github.com/djimenezab/agrogest).
+- **Datos (privados):** repo [agrogest-data](https://github.com/djimenezab/agrogest-data)
+  (privado). Configúralo en la pestaña **Ajustes** de la app: usuario `djimenezab`,
+  repositorio `agrogest-data`, ruta `data/agrogest-data.json`, y tu token personal.
+
 ## Cómo se guardan los datos
 
 - Todo se guarda primero en el `localStorage` del navegador: funciona sin
@@ -68,7 +74,6 @@ test.html          comprobación manual de las funciones clave (ábrelo en el na
 - Login o control de acceso (hoy cualquiera con el enlace + token puede
   escribir; suficiente para uso privado de 2 personas).
 - Gráficas de evolución entre campañas.
-- Publicarla en GitHub Pages para acceder desde el móvil sin `localhost`.
 
 Skipped a propósito: framework JS, build/bundler, base de datos/servidor
 propio — con 2 usuarios y esta cantidad de datos, JSON en GitHub +
