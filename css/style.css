@@ -1,0 +1,141 @@
+:root {
+  --verde: #2e7d32;
+  --verde-oscuro: #1b5e20;
+  --marron: #6d4c41;
+  --fondo: #f7f5f0;
+  --tarjeta: #ffffff;
+  --borde: #e0dcd2;
+  --texto: #2b2a27;
+  --texto-suave: #6b6a66;
+  --rojo: #c0392b;
+  --radio: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--fondo);
+  color: var(--texto);
+  padding-bottom: 2rem;
+}
+
+.topbar {
+  background: var(--verde);
+  color: #fff;
+  padding: .75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.brand { font-weight: 700; font-size: 1.15rem; }
+.sync-status { font-size: .8rem; opacity: .9; min-height: 1em; }
+
+.nav {
+  display: flex;
+  gap: .4rem;
+  overflow-x: auto;
+  padding: .5rem .75rem;
+  background: var(--verde-oscuro);
+  -webkit-overflow-scrolling: touch;
+}
+.nav button {
+  flex: 0 0 auto;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  border: none;
+  padding: .5rem .9rem;
+  border-radius: 20px;
+  font-size: .85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.nav button.active { background: #fff; color: var(--verde-oscuro); font-weight: 600; }
+
+.app { padding: 1rem; max-width: 900px; margin: 0 auto; }
+
+h1, h2, h3 { color: var(--verde-oscuro); }
+
+.card {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.grid-resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: .75rem;
+  margin-bottom: 1rem;
+}
+.stat { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: var(--radio); padding: .9rem; text-align: center; }
+.stat .valor { font-size: 1.5rem; font-weight: 700; color: var(--verde-oscuro); }
+.stat .etiqueta { font-size: .75rem; color: var(--texto-suave); }
+.stat .delta { font-size: .78rem; }
+.delta.up { color: var(--verde); }
+.delta.down { color: var(--rojo); }
+
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .75rem; flex-wrap: wrap; }
+
+button, .btn {
+  font: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  padding: .55rem 1rem;
+  min-height: 42px;
+}
+.btn-primary { background: var(--verde); color: #fff; }
+.btn-secondary { background: #eee; color: var(--texto); }
+.btn-danger { background: var(--rojo); color: #fff; }
+.btn-small { padding: .3rem .6rem; min-height: 34px; font-size: .85rem; }
+
+select#anioSelector { padding: .5rem; border-radius: 8px; border: 1px solid var(--borde); }
+
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.table-wrap { overflow-x: auto; }
+th, td { text-align: left; padding: .5rem .5rem; border-bottom: 1px solid var(--borde); white-space: nowrap; }
+th { color: var(--texto-suave); font-weight: 600; font-size: .78rem; text-transform: uppercase; }
+tr:last-child td { border-bottom: none; }
+.acciones { display: flex; gap: .3rem; }
+
+.vacio { color: var(--texto-suave); text-align: center; padding: 2rem 1rem; }
+
+.form-dialog {
+  border: none;
+  border-radius: var(--radio);
+  padding: 0;
+  width: min(520px, 92vw);
+  max-height: 88vh;
+}
+.form-dialog::backdrop { background: rgba(0,0,0,.45); }
+#entityForm { padding: 1.25rem; overflow-y: auto; max-height: 88vh; }
+#entityForm h2 { margin-top: 0; }
+
+.campo { margin-bottom: .9rem; display: flex; flex-direction: column; gap: .3rem; }
+.campo label { font-size: .82rem; font-weight: 600; color: var(--texto-suave); }
+.campo input, .campo select, .campo textarea {
+  font: inherit;
+  padding: .6rem;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: #fff;
+}
+.campo textarea { min-height: 4rem; resize: vertical; }
+
+.form-acciones { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+
+.ajustes-help { font-size: .82rem; color: var(--texto-suave); line-height: 1.5; }
+.ajustes-help code { background: #eee; padding: .1rem .3rem; border-radius: 4px; }
+.ajustes-acciones { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
+
+@media (max-width: 480px) {
+  .brand { font-size: 1rem; }
+  th, td { padding: .4rem .35rem; font-size: .82rem; }
+}

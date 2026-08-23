@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="UTF-8"><title>AgroGest — self-check</title></head>
+<body>
+<!-- Esqueleto mínimo de DOM que app.js espera encontrar -->
+<div id="syncStatus"></div>
+<nav id="nav"></nav>
+<main id="app"></main>
+<dialog id="formDialog"><form id="entityForm"></form></dialog>
+
+<pre id="resultados">Ejecutando pruebas…</pre>
+
+<script src="js/app.js"></script>
+<script>
+// Self-check manual (sin framework): comprueba las funciones puras clave
+// y el ciclo alta/edición/baja sobre datos en memoria. Abrir este archivo
+// en el navegador y mirar el resultado en pantalla o en la consola.
+function assert(cond, msg) {
+  if (!cond) throw new Error('FALLO: ' + msg);
+  console.log('OK: ' + msg);
+}
+
+function runSelfTest() {
+  const salidas = [];
+  const log = (m) => { salidas.push(m); };
+
+  try {
+    // 1) codificación base64 segura con acentos/ñ (evita corromper datos en GitHub)
+    const original = 'Año 2026 — Parcela "La Viña", cepas: ñoño, José';
+    const codificado = b64EncodeUnicode(original);
+    const decodificado = b64DecodeUnicode(codificado);
+    assert(decodificado === original, 'b64 encode/decode conserva acentos y ñ');
+    log('✓ b64 encode/decode con caracteres especiales');
+
+    // 2) alta, edición y baja sobre una base de datos vacía en memoria
+    DB = emptyDB();
+    upsert('parcelas', { nombre: 'Parcela Test', tipo: 'Viña' });
+    assert(DB.parcelas.length === 1, 'alta crea un registro');
+    const id = DB.parcelas[0].id;
+    assert(typeof id === 'string' && id.length > 0, 'uid() genera un id no vacío');
+    log('✓ alta de parcela');
+
+    upsert('parcelas', { nombre: 'Parcela Test editada' }, id);
+    assert(DB.parcelas.length === 1 && DB.parcelas[0].nombre === 'Parcela Test editada', 'edición no duplica ni pierde el registro');
+    log('✓ edición de parcela');
+
+    // eliminar() pide confirm(); lo forzamos a true para la prueba
+    const confirmOriginal = window.confirm;
+    window.confirm = () => true;
+    eliminar('parcelas', id);
+    window.confirm = confirmOriginal;
+    assert(DB.parcelas.length === 0, 'baja elimina el registro');
+    log('✓ baja de parcela');
+
+    // 3) formateo
+    assert(formatFecha('2026-08-23') === '23/08/2026', 'formatFecha usa dd/mm/aaaa');
+    log('✓ formatFecha');
+    assert(eur(1234.5).includes('€'), 'eur() incluye el símbolo de moneda');
+    log('✓ eur()');
+
+    document.getElementById('resultados').textContent = 'TODAS LAS PRUEBAS PASARON ✓\n\n' + salidas.join('\n');
+  } catch (e) {
+    document.getElementById('resultados').textContent = '❌ ' + e.message + '\n\n' + salidas.join('\n');
+    console.error(e);
+  }
+}
+
+// app.js arranca con DOMContentLoaded (init); lanzamos el test justo después.
+document.addEventListener('DOMContentLoaded', () => setTimeout(runSelfTest, 0));
+</script>
+</body>
+</html>
