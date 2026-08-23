@@ -150,9 +150,12 @@ function loadConfig() {
 function isConfigured() { return !!(CONFIG.token && CONFIG.owner && CONFIG.repo); }
 
 // ---------- sincronización con GitHub ----------
-function setSyncStatus(msg) {
+// estado: 'gray' sin configurar · 'amber' sincronizando · 'green' al día · 'red' error/sin conexión
+function setSyncStatus(msg, estado) {
   const el = document.getElementById('syncStatus');
   if (el) el.textContent = msg || '';
+  const dot = document.getElementById('syncDot');
+  if (dot && estado) dot.className = 'dot dot-' + estado;
 }
 function githubHeaders(json) {
   const h = { Authorization: `token ${CONFIG.token}`, Accept: 'application/vnd.github+json' };
@@ -163,11 +166,11 @@ function githubContentsUrl() {
   return `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`;
 }
 async function pullFromGitHub(manual) {
-  if (!isConfigured()) { if (manual) setSyncStatus('Configura usuario, repositorio y token en Ajustes'); return; }
-  setSyncStatus('Cargando desde GitHub…');
+  if (!isConfigured()) { if (manual) setSyncStatus('Configura usuario, repositorio y token en Ajustes', 'gray'); return; }
+  setSyncStatus('Cargando desde GitHub…', 'amber');
   try {
     const res = await fetch(`${githubContentsUrl()}?ref=${encodeURIComponent(CONFIG.branch || 'main')}`, { headers: githubHeaders() });
-    if (res.status === 404) { SHA = null; setSyncStatus('Sin datos aún en el repositorio; se crearán al guardar'); return; }
+    if (res.status === 404) { SHA = null; setSyncStatus('Sin datos aún en el repositorio; se crearán al guardar', 'green'); return; }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     SHA = json.sha;
@@ -175,21 +178,21 @@ async function pullFromGitHub(manual) {
     // de una versión anterior a la que añadió alguna colección nueva.
     DB = { ...emptyDB(), ...JSON.parse(b64DecodeUnicode(json.content)) };
     saveLocal();
-    setSyncStatus('Sincronizado ✓');
+    setSyncStatus('Sincronizado ✓', 'green');
     render();
   } catch (e) {
-    setSyncStatus('No se pudo cargar de GitHub (' + e.message + ')');
+    setSyncStatus('No se pudo cargar de GitHub (' + e.message + ')', 'red');
   }
 }
 async function pushToGitHub(mensaje) {
   if (!isConfigured()) return;
-  setSyncStatus('Guardando en GitHub…');
+  setSyncStatus('Guardando en GitHub…', 'amber');
   try {
     const body = { message: mensaje, content: b64EncodeUnicode(JSON.stringify(DB, null, 2)), branch: CONFIG.branch || 'main' };
     if (SHA) body.sha = SHA;
     const res = await fetch(githubContentsUrl(), { method: 'PUT', headers: githubHeaders(true), body: JSON.stringify(body) });
     if (res.status === 409) {
-      setSyncStatus('Conflicto: recargando datos más recientes…');
+      setSyncStatus('Conflicto: recargando datos más recientes…', 'amber');
       await pullFromGitHub();
       alert('Otro cambio se guardó primero. Se han recargado los datos más recientes; repite tu cambio si hace falta.');
       return;
@@ -197,9 +200,9 @@ async function pushToGitHub(mensaje) {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     SHA = json.content.sha;
-    setSyncStatus('Guardado ✓ ' + new Date().toLocaleTimeString('es-ES'));
+    setSyncStatus('Guardado ✓ ' + new Date().toLocaleTimeString('es-ES'), 'green');
   } catch (e) {
-    setSyncStatus('Guardado en local (sin conexión a GitHub)');
+    setSyncStatus('Guardado en local (sin conexión a GitHub)', 'red');
   }
 }
 
