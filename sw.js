@@ -1,7 +1,7 @@
 // Service worker mínimo: solo para que el navegador ofrezca "Instalar app"
 // y para que el shell de la app cargue offline. Nunca cachea llamadas a la
 // API de GitHub (deben ir siempre a red para no leer/guardar datos viejos).
-const CACHE = 'agrogest-v1.0'; // sube este número (o la versión) al publicar cambios, para forzar refresco de caché en los móviles
+const CACHE = 'agrogest-v1.1'; // sube este número (o la versión) al publicar cambios, para forzar refresco de caché en los móviles
 const ASSETS = [
   './', './index.html', './css/style.css', './js/app.js', './manifest.json',
   './icons/icon-192.png', './icons/icon-512.png',

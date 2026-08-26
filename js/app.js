@@ -13,8 +13,11 @@ const ENTIDADES = {
       { key: 'tipo', label: 'Tipo', type: 'select', options: ['Viña', 'Almendro', 'Otro'], required: true },
       { key: 'variedad', label: 'Variedad', type: 'text' },
       { key: 'ref_catastral', label: 'Ref. Catastral', type: 'text' },
+      { key: 'provincia', label: 'Provincia', type: 'text', maxLength: 2 },
+      { key: 'municipio', label: 'Municipio', type: 'text', maxLength: 3 },
       { key: 'poligono', label: 'Polígono', type: 'text' },
       { key: 'num_parcela', label: 'Parcela (nº catastral)', type: 'text' },
+      { key: 'subparcela', label: 'Subparcela', type: 'text' },
       { key: 'superficie_ha', label: 'Superficie (ha)', type: 'number', step: '0.01' },
       { key: 'num_plantas', label: 'Nº de cepas / árboles', type: 'number', step: '1' },
       { key: 'anio_plantacion', label: 'Año de plantación', type: 'number', step: '1' },
@@ -28,7 +31,12 @@ const ENTIDADES = {
       { key: 'parcela_id', label: 'Parcela', type: 'parcela', required: true },
       { key: 'fecha', label: 'Fecha de descarga', type: 'date', required: true, default: 'today' },
       { key: 'kg', label: 'Kilos', type: 'number', step: '0.1', required: true },
+      { key: 'hora', label: 'Hora', type: 'time' },
+      { key: 'num_ticket', label: 'Nº Ticket', type: 'text' },
+      { key: 'calidad', label: 'Calidad', type: 'text' },
       { key: 'grado', label: 'Grado (º Baumé / Brix)', type: 'number', step: '0.1', soloParaTipo: ['Viña'] },
+      { key: 'ph', label: 'pH', type: 'number', step: '0.01' },
+      { key: 'gluconico', label: 'Glucónico', type: 'number', step: '0.01' },
       { key: 'cooperativa', label: 'Cooperativa / destino', type: 'text' },
       { key: 'precio_kg', label: 'Precio €/kg (si se conoce)', type: 'number', step: '0.0001', money: true },
       { key: 'notas', label: 'Notas', type: 'textarea' },
@@ -274,6 +282,7 @@ function openForm(key, id) {
       input = document.createElement('input');
       input.type = campo.type;
       if (campo.step) input.step = campo.step;
+      if (campo.maxLength) input.maxLength = campo.maxLength;
     }
     input.id = 'f_' + campo.key;
     input.name = campo.key;
