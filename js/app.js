@@ -42,7 +42,7 @@ const ENTIDADES = {
       { key: 'precio_kg', label: 'Precio €/kg (si se conoce)', type: 'number', step: '0.0001', money: true },
       { key: 'notas', label: 'Notas', type: 'textarea' },
     ],
-    listCols: ['fecha', 'parcela_id', 'kg', 'grado'],
+    listCols: ['fecha', 'parcela_id', 'kg', 'grado', 'calidad'],
   },
   gastos: {
     label: 'Gastos', singular: 'gasto', icon: '💶',
@@ -454,7 +454,9 @@ function entityTableHTML(key, headingTag) {
   const cfg = ENTIDADES[key];
   const list = [...scoped(key)];
   const tieneFecha = cfg.campos.some(c => c.key === 'fecha');
-  list.sort((a, b) => tieneFecha ? (b.fecha || '').localeCompare(a.fecha || '') : (a.nombre || '').localeCompare(b.nombre || ''));
+  const tieneHora = cfg.campos.some(c => c.key === 'hora');
+  const clave = it => (it.fecha || '') + ' ' + (tieneHora ? (it.hora || '') : '');
+  list.sort((a, b) => tieneFecha ? clave(b).localeCompare(clave(a)) : (a.nombre || '').localeCompare(b.nombre || ''));
 
   let html = `<div class="toolbar"><${headingTag}>${cfg.icon} ${cfg.label}</${headingTag}><button class="btn-primary" onclick="openForm('${key}')">+ Nuevo/a</button></div>`;
 
