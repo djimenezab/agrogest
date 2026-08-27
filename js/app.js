@@ -31,14 +31,14 @@ const ENTIDADES = {
     campos: [
       { key: 'parcela_id', label: 'Parcela', type: 'parcela', required: true },
       { key: 'fecha', label: 'Fecha', type: 'date', required: true, default: 'today' },
-      { key: 'kg', label: 'Kilos', type: 'number', step: '0.1', required: true, miles: true },
       { key: 'hora', label: 'Hora', type: 'time' },
       { key: 'num_ticket', label: 'Nº Ticket', type: 'text' },
-      { key: 'calidad', label: 'Calidad', type: 'text' },
+      { key: 'kg', label: 'Kilos', type: 'number', step: '0.1', required: true, miles: true },
       { key: 'grado', label: 'Grado (º Baumé / Brix)', colLabel: 'Grado', type: 'number', step: '0.1', soloParaTipo: ['Viña'] },
       { key: 'ph', label: 'pH', type: 'number', step: '0.01' },
       { key: 'gluconico', label: 'Glucónico', type: 'number', step: '0.01' },
-      { key: 'cooperativa', label: 'Cooperativa / destino', type: 'text' },
+      { key: 'calidad', label: 'Calidad', type: 'select', options: ['Calidad-1', 'Calidad-2', 'Calidad-3'] },
+      { key: 'cooperativa', label: 'Cooperativa / destino', type: 'text', default: 'San Isidro' },
       { key: 'precio_kg', label: 'Precio €/kg (si se conoce)', type: 'number', step: '0.0001', money: true },
       { key: 'notas', label: 'Notas', type: 'textarea' },
     ],
@@ -148,7 +148,18 @@ let ACTIVE_SOCIO = null;
 function uid() { return crypto.randomUUID(); }
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function formatFecha(iso) { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`; }
-function eur(n) { return Number(n || 0).toLocaleString('es-ES', { style: 'currency', currency: 'EUR' }); }
+// Intl.toLocaleString('es-ES') solo agrupa los miles a partir de 5 cifras
+// (p.ej. 11620 -> "11.620" pero 5560 -> "5560"); formateamos a mano para
+// que el punto de los miles salga siempre, con decimales opcionales.
+function conMiles(n, decimales) {
+  const num = Number(n) || 0;
+  const neg = num < 0;
+  const fijo = decimales !== undefined ? Math.abs(num).toFixed(decimales) : String(Math.abs(num));
+  const [ent, dec] = fijo.split('.');
+  const entAgrupado = ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (neg ? '-' : '') + entAgrupado + (dec ? ',' + dec : '');
+}
+function eur(n) { return conMiles(n, 2) + ' €'; }
 function b64EncodeUnicode(str) { return btoa(unescape(encodeURIComponent(str))); }
 function b64DecodeUnicode(str) { return decodeURIComponent(escape(atob(str.replace(/\n/g, '')))); }
 const TIPOS_TAREA_INICIALES = ['Poda', 'Riego', 'Labranza', 'Aplicación de producto', 'Atado de alambres', 'Vendimia / recolección', 'Abonado'];
@@ -344,6 +355,7 @@ function openForm(key, id) {
       input = document.createElement('textarea');
     } else if (campo.type === 'select') {
       input = document.createElement('select');
+      if (!campo.required) { const o = document.createElement('option'); o.value = ''; o.textContent = '(sin especificar)'; input.appendChild(o); }
       campo.options.forEach(opt => { const o = document.createElement('option'); o.value = opt; o.textContent = opt; input.appendChild(o); });
     } else if (campo.type === 'parcela') {
       input = document.createElement('select');
@@ -434,7 +446,7 @@ function formatValor(campo, valor) {
   if (campo.type === 'tipoTarea') { const t = DB.tiposTarea.find(x => x.id === valor); return t ? t.nombre : '—'; }
   if (campo.type === 'date') return formatFecha(valor);
   if (campo.money) return eur(valor);
-  if (campo.miles) return Number(valor).toLocaleString('es-ES');
+  if (campo.miles) return conMiles(valor);
   return valor;
 }
 
@@ -496,7 +508,7 @@ function renderDashboard() {
     <button class="btn-primary" onclick="openForm('producciones')">+ Registrar descarga</button>
   </div>
   <div class="grid-resumen">
-    <div class="stat"><div class="valor">${kg.toLocaleString('es-ES')} kg</div><div class="etiqueta">Producción ${anio}</div>
+    <div class="stat"><div class="valor">${conMiles(kg)} kg</div><div class="etiqueta">Producción ${anio}</div>
       ${deltaKg !== null ? `<div class="delta ${deltaKg >= 0 ? 'up' : 'down'}">${deltaKg >= 0 ? '▲' : '▼'} ${Math.abs(deltaKg).toFixed(1)}% vs ${anioPrev}</div>` : ''}
     </div>
     <div class="stat"><div class="valor">${eur(gastos)}</div><div class="etiqueta">Gastos ${anio}</div></div>
@@ -517,7 +529,7 @@ function renderDashboard() {
       const kgPP = scoped('producciones').filter(enAnioPrev).reduce((s, x) => s + (x.kg || 0), 0);
       const gP = scoped('gastos').filter(enAnio).reduce((s, x) => s + (x.importe || 0), 0);
       const iP = scoped('ingresos').filter(enAnio).reduce((s, x) => s + (x.importe || 0), 0);
-      html += `<tr><td>${p.nombre}</td><td>${kgP.toLocaleString('es-ES')}</td><td>${kgPP.toLocaleString('es-ES')}</td><td>${eur(gP)}</td><td>${eur(iP)}</td><td>${eur(iP - gP)}</td></tr>`;
+      html += `<tr><td>${p.nombre}</td><td>${conMiles(kgP)}</td><td>${conMiles(kgPP)}</td><td>${eur(gP)}</td><td>${eur(iP)}</td><td>${eur(iP - gP)}</td></tr>`;
     });
   }
   html += '</tbody></table></div></div>';
