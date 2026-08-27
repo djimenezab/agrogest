@@ -533,6 +533,23 @@ function renderDashboard() {
     });
   }
   html += '</tbody></table></div></div>';
+
+  const porCalidad = {};
+  scoped('producciones').filter(p => p.fecha && p.fecha.startsWith(String(anio))).forEach(p => {
+    const c = p.calidad || 'Sin calidad';
+    porCalidad[c] = (porCalidad[c] || 0) + (p.kg || 0);
+  });
+  html += `<div class="card"><h3>Kilos por calidad</h3><div class="table-wrap"><table>
+    <thead><tr><th>Calidad</th><th>Kg ${anio}</th></tr></thead>
+    <tbody>`;
+  const calidades = Object.keys(porCalidad);
+  if (calidades.length === 0) {
+    html += `<tr><td colspan="2">Sin datos de producción en ${anio}.</td></tr>`;
+  } else {
+    calidades.sort().forEach(c => { html += `<tr><td>${c}</td><td>${conMiles(porCalidad[c])}</td></tr>`; });
+  }
+  html += '</tbody></table></div></div>';
+
   document.getElementById('app').innerHTML = html;
 }
 function cambiarAnio(v) { window._anioSel = parseInt(v, 10); renderDashboard(); }
