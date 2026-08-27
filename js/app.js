@@ -30,19 +30,19 @@ const ENTIDADES = {
     label: 'Producción', singular: 'entrada de producción', icon: '🍇',
     campos: [
       { key: 'parcela_id', label: 'Parcela', type: 'parcela', required: true },
-      { key: 'fecha', label: 'Fecha de descarga', type: 'date', required: true, default: 'today' },
-      { key: 'kg', label: 'Kilos', type: 'number', step: '0.1', required: true },
+      { key: 'fecha', label: 'Fecha', type: 'date', required: true, default: 'today' },
+      { key: 'kg', label: 'Kilos', type: 'number', step: '0.1', required: true, miles: true },
       { key: 'hora', label: 'Hora', type: 'time' },
       { key: 'num_ticket', label: 'Nº Ticket', type: 'text' },
       { key: 'calidad', label: 'Calidad', type: 'text' },
-      { key: 'grado', label: 'Grado (º Baumé / Brix)', type: 'number', step: '0.1', soloParaTipo: ['Viña'] },
+      { key: 'grado', label: 'Grado (º Baumé / Brix)', colLabel: 'Grado', type: 'number', step: '0.1', soloParaTipo: ['Viña'] },
       { key: 'ph', label: 'pH', type: 'number', step: '0.01' },
       { key: 'gluconico', label: 'Glucónico', type: 'number', step: '0.01' },
       { key: 'cooperativa', label: 'Cooperativa / destino', type: 'text' },
       { key: 'precio_kg', label: 'Precio €/kg (si se conoce)', type: 'number', step: '0.0001', money: true },
       { key: 'notas', label: 'Notas', type: 'textarea' },
     ],
-    listCols: ['fecha', 'parcela_id', 'kg', 'grado', 'cooperativa'],
+    listCols: ['fecha', 'parcela_id', 'kg', 'grado'],
   },
   gastos: {
     label: 'Gastos', singular: 'gasto', icon: '💶',
@@ -291,6 +291,23 @@ function eliminar(key, id) {
 }
 
 // ---------- formulario genérico ----------
+// Ficha rápida de consulta (polígono/parcela/variedad, lo que suelen pedir
+// en la cooperativa); solo lectura, con botón de cerrar. La edición sigue
+// siendo el lápiz de la fila.
+function mostrarInfoParcela(id) {
+  const p = DB.parcelas.find(x => x.id === id);
+  if (!p) return;
+  const form = document.getElementById('entityForm');
+  form.innerHTML = `
+    <h2>${p.nombre}</h2>
+    <div class="campo"><label>Polígono</label><div>${p.poligono || '—'}</div></div>
+    <div class="campo"><label>Parcela</label><div>${p.num_parcela || '—'}</div></div>
+    <div class="campo"><label>Variedad</label><div>${p.variedad || '—'}</div></div>
+    <div class="form-acciones"><button type="button" class="btn-primary" onclick="document.getElementById('formDialog').close()">Cerrar</button></div>`;
+  form.onsubmit = (e) => e.preventDefault();
+  document.getElementById('formDialog').showModal();
+}
+
 function openForm(key, id) {
   const cfg = ENTIDADES[key];
   if (SOCIO_SCOPED.includes(key) && !ACTIVE_SOCIO) {
@@ -417,6 +434,7 @@ function formatValor(campo, valor) {
   if (campo.type === 'tipoTarea') { const t = DB.tiposTarea.find(x => x.id === valor); return t ? t.nombre : '—'; }
   if (campo.type === 'date') return formatFecha(valor);
   if (campo.money) return eur(valor);
+  if (campo.miles) return Number(valor).toLocaleString('es-ES');
   return valor;
 }
 
@@ -432,10 +450,13 @@ function entityTableHTML(key, headingTag) {
     html += `<div class="vacio">Todavía no hay registros. Pulsa "+ Nuevo/a" para añadir el primero.</div>`;
   } else {
     html += '<div class="table-wrap"><table><thead><tr>';
-    cfg.listCols.forEach(colKey => { html += `<th>${cfg.campos.find(c => c.key === colKey).label}</th>`; });
+    cfg.listCols.forEach(colKey => { const c = cfg.campos.find(c => c.key === colKey); html += `<th>${c.colLabel || c.label}</th>`; });
     html += '<th></th></tr></thead><tbody>';
     list.forEach(item => {
-      html += `<tr onclick="openForm('${key}','${item.id}')">`;
+      // En Parcelas, tocar la fila muestra una ficha de consulta (para la
+      // cooperativa: polígono/parcela/variedad); el lápiz sigue abriendo la edición.
+      const alPinchar = key === 'parcelas' ? `mostrarInfoParcela('${item.id}')` : `openForm('${key}','${item.id}')`;
+      html += `<tr onclick="${alPinchar}">`;
       cfg.listCols.forEach(colKey => {
         const campo = cfg.campos.find(c => c.key === colKey);
         html += `<td>${formatValor(campo, item[colKey])}</td>`;
