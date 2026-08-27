@@ -4,6 +4,7 @@
 
 const DB_KEY = 'agrogest_db';
 const CFG_KEY = 'agrogest_cfg';
+const SOCIO_KEY = 'agrogest_socio_actual';
 
 const ENTIDADES = {
   parcelas: {
@@ -112,7 +113,19 @@ const ENTIDADES = {
     campos: [{ key: 'nombre', label: 'Nombre', type: 'text', required: true }],
     listCols: ['nombre'],
   },
+  socios: {
+    label: 'Socios', singular: 'socio', icon: '👤',
+    campos: [
+      { key: 'numero', label: 'Número', type: 'text', required: true },
+      { key: 'nombre', label: 'Nombre', type: 'text', required: true },
+    ],
+    listCols: ['numero', 'nombre'],
+  },
 };
+
+// Colecciones cuyos registros pertenecen a un socio concreto; el resto
+// (tiposTarea, socios) es compartido entre todos.
+const SOCIO_SCOPED = ['parcelas', 'producciones', 'gastos', 'ingresos', 'tratamientos', 'seguros', 'tareas'];
 
 const NAV = [
   { key: 'inicio', label: 'Inicio', icon: '🏠' },
@@ -129,6 +142,7 @@ const NAV = [
 let DB = null;
 let SHA = null;
 let CONFIG = {};
+let ACTIVE_SOCIO = null;
 
 // ---------- utilidades ----------
 function uid() { return crypto.randomUUID(); }
@@ -143,6 +157,44 @@ function emptyDB() {
   Object.keys(ENTIDADES).forEach(k => { db[k] = []; });
   db.tiposTarea = TIPOS_TAREA_INICIALES.map(nombre => ({ id: uid(), nombre }));
   return db;
+}
+
+// ---------- socios ----------
+// Filtra las colecciones que pertenecen a un socio; tiposTarea y socios
+// son compartidos, así que se devuelven completos.
+function scoped(key) {
+  const list = DB[key] || [];
+  return SOCIO_SCOPED.includes(key) ? list.filter(x => x.socio_id === ACTIVE_SOCIO) : list;
+}
+// Si ya había datos de una versión sin socios, se agrupan en un socio
+// "Principal" para no perderlos.
+function migrarSocios() {
+  if (DB.socios.length > 0) return;
+  const huerfanos = SOCIO_SCOPED.some(k => (DB[k] || []).length > 0);
+  if (!huerfanos) return;
+  const principal = { id: uid(), numero: '1', nombre: 'Principal' };
+  DB.socios.push(principal);
+  SOCIO_SCOPED.forEach(k => DB[k].forEach(item => { if (!item.socio_id) item.socio_id = principal.id; }));
+  saveLocal();
+}
+function setDB(data) {
+  DB = { ...emptyDB(), ...data };
+  migrarSocios();
+}
+function renderSocioSelector() {
+  const sel = document.getElementById('socioSelector');
+  if (!sel) return;
+  sel.innerHTML = DB.socios.map(s => `<option value="${s.id}">${s.numero} ${s.nombre}</option>`).join('')
+    + '<option value="__nuevo__">+ Nuevo socio…</option>';
+  if (!DB.socios.some(s => s.id === ACTIVE_SOCIO)) ACTIVE_SOCIO = DB.socios[0] ? DB.socios[0].id : null;
+  if (ACTIVE_SOCIO) sel.value = ACTIVE_SOCIO;
+  localStorage.setItem(SOCIO_KEY, ACTIVE_SOCIO || '');
+}
+function cambiarSocio(v) {
+  if (v === '__nuevo__') { renderSocioSelector(); openForm('socios'); return; }
+  ACTIVE_SOCIO = v || null;
+  localStorage.setItem(SOCIO_KEY, ACTIVE_SOCIO || '');
+  render();
 }
 
 // ---------- persistencia local ----------
@@ -184,7 +236,7 @@ async function pullFromGitHub(manual) {
     SHA = json.sha;
     // Se fusiona con emptyDB() para no romperse si el archivo remoto viene
     // de una versión anterior a la que añadió alguna colección nueva.
-    DB = { ...emptyDB(), ...JSON.parse(b64DecodeUnicode(json.content)) };
+    setDB(JSON.parse(b64DecodeUnicode(json.content)));
     saveLocal();
     setSyncStatus('Sincronizado ✓', 'green');
     render();
@@ -222,6 +274,8 @@ function upsert(key, data, id) {
     list[idx] = { ...list[idx], ...data, id };
   } else {
     data.id = uid();
+    if (SOCIO_SCOPED.includes(key)) data.socio_id = ACTIVE_SOCIO;
+    if (key === 'socios') ACTIVE_SOCIO = data.id; // el socio recién creado pasa a ser el activo
     list.push(data);
   }
   saveLocal();
@@ -239,8 +293,12 @@ function eliminar(key, id) {
 // ---------- formulario genérico ----------
 function openForm(key, id) {
   const cfg = ENTIDADES[key];
+  if (SOCIO_SCOPED.includes(key) && !ACTIVE_SOCIO) {
+    alert('Primero elige o crea un socio arriba, junto al semáforo de sincronización.');
+    return;
+  }
   const necesitaParcela = cfg.campos.some(c => c.type === 'parcela' && c.required);
-  if (necesitaParcela && DB.parcelas.length === 0) {
+  if (necesitaParcela && scoped('parcelas').length === 0) {
     alert('Primero crea una parcela en la pestaña "Parcelas".');
     location.hash = '#/parcelas';
     return;
@@ -273,7 +331,7 @@ function openForm(key, id) {
     } else if (campo.type === 'parcela') {
       input = document.createElement('select');
       if (!campo.required) { const o = document.createElement('option'); o.value = ''; o.textContent = '(general / sin parcela)'; input.appendChild(o); }
-      DB.parcelas.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.nombre; input.appendChild(o); });
+      scoped('parcelas').forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.nombre; input.appendChild(o); });
     } else if (campo.type === 'tipoTarea') {
       input = document.createElement('select');
       if (!campo.required) { const o = document.createElement('option'); o.value = ''; o.textContent = '(sin tipo)'; input.appendChild(o); }
@@ -364,7 +422,7 @@ function formatValor(campo, valor) {
 
 function entityTableHTML(key, headingTag) {
   const cfg = ENTIDADES[key];
-  const list = [...DB[key]];
+  const list = [...scoped(key)];
   const tieneFecha = cfg.campos.some(c => c.key === 'fecha');
   list.sort((a, b) => tieneFecha ? (b.fecha || '').localeCompare(a.fecha || '') : (a.nombre || '').localeCompare(b.nombre || ''));
 
@@ -394,17 +452,17 @@ function renderEntityList(key) {
 
 function renderDashboard() {
   const anios = new Set([new Date().getFullYear()]);
-  ['producciones', 'gastos', 'ingresos'].forEach(k => DB[k].forEach(it => { if (it.fecha) anios.add(parseInt(it.fecha.slice(0, 4), 10)); }));
+  ['producciones', 'gastos', 'ingresos'].forEach(k => scoped(k).forEach(it => { if (it.fecha) anios.add(parseInt(it.fecha.slice(0, 4), 10)); }));
   const aniosArr = [...anios].sort((a, b) => b - a);
   if (!window._anioSel || !aniosArr.includes(window._anioSel)) window._anioSel = aniosArr[0];
   const anio = window._anioSel, anioPrev = anio - 1;
 
-  const sumaKg = a => DB.producciones.filter(p => p.fecha && p.fecha.startsWith(String(a))).reduce((s, p) => s + (p.kg || 0), 0);
+  const sumaKg = a => scoped('producciones').filter(p => p.fecha && p.fecha.startsWith(String(a))).reduce((s, p) => s + (p.kg || 0), 0);
   const sumaImporte = (list, a) => list.filter(x => x.fecha && x.fecha.startsWith(String(a))).reduce((s, x) => s + (x.importe || 0), 0);
 
   const kg = sumaKg(anio), kgPrev = sumaKg(anioPrev);
-  const gastos = sumaImporte(DB.gastos, anio);
-  const ingresos = sumaImporte(DB.ingresos, anio);
+  const gastos = sumaImporte(scoped('gastos'), anio);
+  const ingresos = sumaImporte(scoped('ingresos'), anio);
   const balance = ingresos - gastos;
   const deltaKg = kgPrev > 0 ? ((kg - kgPrev) / kgPrev * 100) : null;
 
@@ -428,16 +486,16 @@ function renderDashboard() {
     <thead><tr><th>Parcela</th><th>Kg ${anio}</th><th>Kg ${anioPrev}</th><th>Gastos</th><th>Ingresos</th><th>Balance</th></tr></thead>
     <tbody>`;
 
-  if (DB.parcelas.length === 0) {
+  if (scoped('parcelas').length === 0) {
     html += `<tr><td colspan="6">Añade tus parcelas para ver el detalle aquí.</td></tr>`;
   } else {
-    DB.parcelas.forEach(p => {
+    scoped('parcelas').forEach(p => {
       const enAnio = x => x.parcela_id === p.id && x.fecha && x.fecha.startsWith(String(anio));
       const enAnioPrev = x => x.parcela_id === p.id && x.fecha && x.fecha.startsWith(String(anioPrev));
-      const kgP = DB.producciones.filter(enAnio).reduce((s, x) => s + (x.kg || 0), 0);
-      const kgPP = DB.producciones.filter(enAnioPrev).reduce((s, x) => s + (x.kg || 0), 0);
-      const gP = DB.gastos.filter(enAnio).reduce((s, x) => s + (x.importe || 0), 0);
-      const iP = DB.ingresos.filter(enAnio).reduce((s, x) => s + (x.importe || 0), 0);
+      const kgP = scoped('producciones').filter(enAnio).reduce((s, x) => s + (x.kg || 0), 0);
+      const kgPP = scoped('producciones').filter(enAnioPrev).reduce((s, x) => s + (x.kg || 0), 0);
+      const gP = scoped('gastos').filter(enAnio).reduce((s, x) => s + (x.importe || 0), 0);
+      const iP = scoped('ingresos').filter(enAnio).reduce((s, x) => s + (x.importe || 0), 0);
       html += `<tr><td>${p.nombre}</td><td>${kgP.toLocaleString('es-ES')}</td><td>${kgPP.toLocaleString('es-ES')}</td><td>${eur(gP)}</td><td>${eur(iP)}</td><td>${eur(iP - gP)}</td></tr>`;
     });
   }
@@ -466,6 +524,10 @@ function renderAjustes() {
       <button class="btn-secondary" onclick="pullFromGitHub(true)">Cargar ahora desde GitHub</button>
     </div>
     <p class="ajustes-help">El token se guarda solo en este dispositivo (localStorage); nunca se sube al repositorio.</p>
+  </div>
+  <div class="card">
+    <p class="ajustes-help">Socios, cada uno con sus propias parcelas, producción, gastos, ingresos, sanidad, seguros y tareas. Se elige el socio activo arriba, junto al semáforo.</p>
+    ${entityTableHTML('socios', 'h3')}
   </div>
   <div class="card">
     <p class="ajustes-help">Categorías para clasificar las tareas (poda, riego, labranza…) y poder ver luego horas y gasto invertido por tipo.</p>
@@ -509,7 +571,7 @@ function importarJSON(event) {
     try {
       const data = JSON.parse(reader.result);
       if (!confirm('Esto sustituirá todos los datos actuales por los del archivo importado. ¿Continuar?')) return;
-      DB = { ...emptyDB(), ...data };
+      setDB(data);
       saveLocal();
       render();
       if (isConfigured()) pushToGitHub('AgroGest: importa copia de seguridad');
@@ -530,6 +592,7 @@ function renderNav() {
 }
 function render() {
   renderNav();
+  renderSocioSelector();
   const key = location.hash.replace('#/', '') || 'inicio';
   if (key === 'inicio') renderDashboard();
   else if (key === 'ajustes') renderAjustes();
@@ -540,8 +603,9 @@ window.addEventListener('hashchange', render);
 
 // ---------- arranque ----------
 async function init() {
-  DB = { ...emptyDB(), ...(loadLocal() || {}) };
+  setDB(loadLocal() || {});
   CONFIG = loadConfig();
+  ACTIVE_SOCIO = localStorage.getItem(SOCIO_KEY) || null;
   render();
   if (isConfigured()) await pullFromGitHub();
 }

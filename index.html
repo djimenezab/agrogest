@@ -15,9 +15,14 @@
 
 <header class="topbar">
   <div class="brand">🍇 AgroGest <span class="version">v1.0</span></div>
-  <div class="sync-wrap" title="Estado de sincronización con GitHub">
-    <span id="syncDot" class="dot dot-gray"></span>
-    <span id="syncStatus" class="sync-status" aria-live="polite"></span>
+  <div class="topbar-right">
+    <div class="socio-wrap">
+      <select id="socioSelector" title="Socio activo" onchange="cambiarSocio(this.value)"></select>
+    </div>
+    <div class="sync-wrap" title="Estado de sincronización con GitHub">
+      <span id="syncDot" class="dot dot-gray"></span>
+      <span id="syncStatus" class="sync-status" aria-live="polite"></span>
+    </div>
   </div>
 </header>
 
