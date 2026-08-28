@@ -548,7 +548,7 @@ function entityTableHTML(key, headingTag) {
       // En Parcelas, tocar la fila muestra una ficha de consulta (para la
       // cooperativa: polígono/parcela/variedad); el lápiz sigue abriendo la edición.
       const alPinchar = key === 'parcelas' ? `mostrarInfoParcela('${item.id}')`
-        : ['producciones', 'gastos', 'tratamientos', 'ingresos', 'seguros'].includes(key) ? `verDetalleRegistro('${key}','${item.id}')`
+        : ['producciones', 'gastos', 'tratamientos', 'ingresos', 'seguros', 'tareas'].includes(key) ? `verDetalleRegistro('${key}','${item.id}')`
         : `openForm('${key}','${item.id}')`;
       html += `<tr onclick="${alPinchar}">`;
       cfg.listCols.forEach(colKey => {
