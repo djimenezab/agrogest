@@ -380,6 +380,22 @@ function agregarHistorial(id) {
   verParcelaCompleta(id);
 }
 
+// Ficha de solo lectura con todos los campos del registro (para ver lo que
+// no cabe en la lista, p.ej. hora y ticket en Producción). El lápiz de la
+// fila sigue siendo el único acceso a la edición.
+function verDetalleRegistro(key, id) {
+  const cfg = ENTIDADES[key];
+  const item = DB[key].find(x => x.id === id);
+  if (!item) return;
+  const form = document.getElementById('entityForm');
+  form.innerHTML = `<h2>${cfg.icon} ${cfg.singular}</h2>`
+    + cfg.campos.map(c => `<div class="campo"><label>${c.label}</label><div>${formatValor(c, item[c.key])}</div></div>`).join('')
+    + `<div class="form-acciones"><button type="button" class="btn-primary" onclick="document.getElementById('formDialog').close()">Cerrar</button></div>`;
+  form.onsubmit = (e) => e.preventDefault();
+  const dialog = document.getElementById('formDialog');
+  if (!dialog.open) dialog.showModal();
+}
+
 function openForm(key, id) {
   const cfg = ENTIDADES[key];
   if (SOCIO_SCOPED.includes(key) && !ACTIVE_SOCIO) {
@@ -531,7 +547,9 @@ function entityTableHTML(key, headingTag) {
     list.forEach(item => {
       // En Parcelas, tocar la fila muestra una ficha de consulta (para la
       // cooperativa: polígono/parcela/variedad); el lápiz sigue abriendo la edición.
-      const alPinchar = key === 'parcelas' ? `mostrarInfoParcela('${item.id}')` : `openForm('${key}','${item.id}')`;
+      const alPinchar = key === 'parcelas' ? `mostrarInfoParcela('${item.id}')`
+        : key === 'producciones' ? `verDetalleRegistro('${key}','${item.id}')`
+        : `openForm('${key}','${item.id}')`;
       html += `<tr onclick="${alPinchar}">`;
       cfg.listCols.forEach(colKey => {
         const campo = cfg.campos.find(c => c.key === colKey);
