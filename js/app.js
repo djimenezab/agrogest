@@ -311,12 +311,73 @@ function mostrarInfoParcela(id) {
   const form = document.getElementById('entityForm');
   form.innerHTML = `
     <h2>${p.nombre}</h2>
+    <div class="ficha-grande">
+      <div class="ficha-dato"><label>Polígono</label><div class="ficha-valor">${p.poligono || '—'}</div></div>
+      <div class="ficha-dato"><label>Parcela</label><div class="ficha-valor">${p.num_parcela || '—'}</div></div>
+      <div class="ficha-dato"><label>Variedad</label><div class="ficha-valor">${p.variedad || '—'}</div></div>
+    </div>
+    <div class="form-acciones form-acciones-split">
+      <button type="button" class="btn-secondary" onclick="verParcelaCompleta('${p.id}')">Ver</button>
+      <button type="button" class="btn-primary" onclick="document.getElementById('formDialog').close()">Cerrar</button>
+    </div>`;
+  form.onsubmit = (e) => e.preventDefault();
+  const dialog = document.getElementById('formDialog');
+  if (!dialog.open) dialog.showModal();
+}
+
+// Ficha completa de la parcela (todos los campos, solo lectura) + historial
+// de anotaciones libres con fecha (solicitudes, autorizaciones, arranques...).
+function verParcelaCompleta(id) {
+  const p = DB.parcelas.find(x => x.id === id);
+  if (!p) return;
+  const form = document.getElementById('entityForm');
+  const historial = [...(p.historial || [])].sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+  form.innerHTML = `
+    <h2>${p.nombre}</h2>
+    <div class="campo"><label>Tipo</label><div>${p.tipo || '—'}</div></div>
+    <div class="campo"><label>Variedad</label><div>${p.variedad || '—'}</div></div>
+    <div class="campo"><label>Ref. Catastral</label><div>${p.ref_catastral || '—'}</div></div>
+    <div class="campo"><label>Provincia</label><div>${p.provincia || '—'}</div></div>
+    <div class="campo"><label>Municipio</label><div>${p.municipio || '—'}</div></div>
     <div class="campo"><label>Polígono</label><div>${p.poligono || '—'}</div></div>
     <div class="campo"><label>Parcela</label><div>${p.num_parcela || '—'}</div></div>
-    <div class="campo"><label>Variedad</label><div>${p.variedad || '—'}</div></div>
-    <div class="form-acciones"><button type="button" class="btn-primary" onclick="document.getElementById('formDialog').close()">Cerrar</button></div>`;
+    <div class="campo"><label>Subparcela</label><div>${p.subparcela || '—'}</div></div>
+    <div class="campo"><label>Superficie (ha)</label><div>${p.superficie_ha ?? '—'}</div></div>
+    <div class="campo"><label>Nº de cepas / árboles</label><div>${p.num_plantas ?? '—'}</div></div>
+    <div class="campo"><label>Año de plantación</label><div>${p.anio_plantacion ?? '—'}</div></div>
+    <div class="campo"><label>Notas</label><div>${p.notas || '—'}</div></div>
+    <h3>Historial</h3>
+    <div class="historial-lista">
+      ${historial.length === 0 ? '<p class="vacio">Sin anotaciones todavía.</p>' :
+        historial.map(h => `<div class="historial-item"><strong>${formatFecha(h.fecha)}</strong> — ${h.texto}</div>`).join('')}
+    </div>
+    <div class="campo">
+      <label>Añadir anotación</label>
+      <div class="historial-form">
+        <input type="date" id="histFecha" value="${todayISO()}">
+        <input type="text" id="histTexto" placeholder="Ej. Solicitamos arranque, pago de tasa 35,9€">
+        <button type="button" class="btn-secondary" onclick="agregarHistorial('${p.id}')">Añadir</button>
+      </div>
+    </div>
+    <div class="form-acciones form-acciones-split">
+      <button type="button" class="btn-secondary" onclick="mostrarInfoParcela('${p.id}')">← Volver</button>
+      <button type="button" class="btn-primary" onclick="document.getElementById('formDialog').close()">Cerrar</button>
+    </div>`;
   form.onsubmit = (e) => e.preventDefault();
-  document.getElementById('formDialog').showModal();
+  const dialog = document.getElementById('formDialog');
+  if (!dialog.open) dialog.showModal();
+}
+function agregarHistorial(id) {
+  const p = DB.parcelas.find(x => x.id === id);
+  if (!p) return;
+  const fecha = document.getElementById('histFecha').value;
+  const texto = document.getElementById('histTexto').value.trim();
+  if (!fecha || !texto) return;
+  if (!p.historial) p.historial = [];
+  p.historial.push({ id: uid(), fecha, texto });
+  saveLocal();
+  if (isConfigured()) pushToGitHub('AgroGest: añade historial a parcela');
+  verParcelaCompleta(id);
 }
 
 function openForm(key, id) {

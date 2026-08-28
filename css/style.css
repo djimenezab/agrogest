@@ -143,6 +143,16 @@ tr:last-child td { border-bottom: none; }
 .campo textarea { min-height: 4rem; resize: vertical; }
 
 .form-acciones { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+.form-acciones-split { justify-content: space-between; }
+
+.ficha-grande { display: flex; flex-direction: column; align-items: center; gap: 1.1rem; margin: 1.5rem 0; text-align: center; }
+.ficha-dato label { display: block; font-size: .8rem; font-weight: 600; color: var(--texto-suave); margin-bottom: .2rem; }
+.ficha-valor { font-size: 1.6rem; font-weight: 700; color: var(--verde-oscuro); }
+
+.historial-lista { display: flex; flex-direction: column; gap: .5rem; margin-bottom: 1rem; }
+.historial-item { padding: .5rem .6rem; background: var(--fondo); border-radius: 8px; font-size: .9rem; }
+.historial-form { display: flex; gap: .5rem; flex-wrap: wrap; }
+.historial-form input[type="text"] { flex: 1 1 200px; }
 
 .ajustes-help { font-size: .82rem; color: var(--texto-suave); line-height: 1.5; }
 .ajustes-help code { background: #eee; padding: .1rem .3rem; border-radius: 4px; }
