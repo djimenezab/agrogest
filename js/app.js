@@ -20,7 +20,7 @@ const ENTIDADES = {
       { key: 'num_parcela', label: 'Parcela (nº catastral)', colLabel: 'Parc.', type: 'text' },
       { key: 'subparcela', label: 'Subparcela', type: 'text' },
       { key: 'superficie_ha', label: 'Superficie (ha)', colLabel: '(ha)', type: 'number', step: '0.01' },
-      { key: 'num_plantas', label: 'Nº de cepas / árboles', colLabel: 'Nº', type: 'number', step: '1' },
+      { key: 'num_plantas', label: 'Nº de cepas / árboles', colLabel: 'Nº', type: 'number', step: '1', miles: true },
       { key: 'anio_plantacion', label: 'Año de plantación', type: 'number', step: '1' },
       { key: 'notas', label: 'Notas', type: 'textarea' },
     ],
@@ -536,7 +536,7 @@ function entityTableHTML(key, headingTag) {
       cfg.listCols.forEach(colKey => {
         const campo = cfg.campos.find(c => c.key === colKey);
         const val = formatValor(campo, item[colKey]);
-        if (key === 'producciones' && colKey === 'grado') {
+        if (key === 'producciones' && (colKey === 'grado' || colKey === 'calidad')) {
           html += `<td style="text-align:center;font-weight:700;color:${COLOR_CALIDAD[item.calidad] || ''}">${val}</td>`;
         } else {
           html += `<td>${val}</td>`;
@@ -616,6 +616,23 @@ function renderDashboard() {
     html += `<tr><td colspan="2">Sin datos de producción en ${anio}.</td></tr>`;
   } else {
     calidades.sort().forEach(c => { html += `<tr><td>${c}</td><td>${conMiles(porCalidad[c])}</td></tr>`; });
+  }
+  html += '</tbody></table></div></div>';
+
+  const porVariedad = {};
+  scoped('producciones').filter(p => p.fecha && p.fecha.startsWith(String(anio))).forEach(p => {
+    const parcela = DB.parcelas.find(x => x.id === p.parcela_id);
+    const v = (parcela && parcela.variedad) || 'Sin variedad';
+    porVariedad[v] = (porVariedad[v] || 0) + (p.kg || 0);
+  });
+  html += `<div class="card"><h3>Kilos por variedad</h3><div class="table-wrap"><table>
+    <thead><tr><th>Variedad</th><th>Kg ${anio}</th></tr></thead>
+    <tbody>`;
+  const variedades = Object.keys(porVariedad);
+  if (variedades.length === 0) {
+    html += `<tr><td colspan="2">Sin datos de producción en ${anio}.</td></tr>`;
+  } else {
+    variedades.sort().forEach(v => { html += `<tr><td>${v}</td><td>${conMiles(porVariedad[v])}</td></tr>`; });
   }
   html += '</tbody></table></div></div>';
 
