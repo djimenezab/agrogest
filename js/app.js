@@ -537,7 +537,7 @@ function entityTableHTML(key, headingTag) {
         const campo = cfg.campos.find(c => c.key === colKey);
         const val = formatValor(campo, item[colKey]);
         if (key === 'producciones' && colKey === 'grado') {
-          html += `<td style="text-align:center;color:${COLOR_CALIDAD[item.calidad] || ''}">${val}</td>`;
+          html += `<td style="text-align:center;font-weight:700;color:${COLOR_CALIDAD[item.calidad] || ''}">${val}</td>`;
         } else {
           html += `<td>${val}</td>`;
         }
