@@ -16,15 +16,15 @@ const ENTIDADES = {
       { key: 'ref_catastral', label: 'Ref. Catastral', type: 'text' },
       { key: 'provincia', label: 'Provincia', type: 'text', maxLength: 2 },
       { key: 'municipio', label: 'Municipio', type: 'text', maxLength: 3 },
-      { key: 'poligono', label: 'Polígono', type: 'text' },
-      { key: 'num_parcela', label: 'Parcela (nº catastral)', type: 'text' },
+      { key: 'poligono', label: 'Polígono', colLabel: 'Pol.', type: 'text' },
+      { key: 'num_parcela', label: 'Parcela (nº catastral)', colLabel: 'Parc.', type: 'text' },
       { key: 'subparcela', label: 'Subparcela', type: 'text' },
-      { key: 'superficie_ha', label: 'Superficie (ha)', type: 'number', step: '0.01' },
-      { key: 'num_plantas', label: 'Nº de cepas / árboles', type: 'number', step: '1' },
+      { key: 'superficie_ha', label: 'Superficie (ha)', colLabel: '(ha)', type: 'number', step: '0.01' },
+      { key: 'num_plantas', label: 'Nº de cepas / árboles', colLabel: 'Nº', type: 'number', step: '1' },
       { key: 'anio_plantacion', label: 'Año de plantación', type: 'number', step: '1' },
       { key: 'notas', label: 'Notas', type: 'textarea' },
     ],
-    listCols: ['nombre', 'tipo', 'variedad', 'superficie_ha', 'num_plantas'],
+    listCols: ['nombre', 'poligono', 'num_parcela', 'tipo', 'variedad', 'superficie_ha', 'num_plantas'],
   },
   producciones: {
     label: 'Producción', singular: 'entrada de producción', icon: '🍇',
@@ -440,6 +440,7 @@ function openForm(key, id) {
 }
 
 // ---------- vistas ----------
+const COLOR_CALIDAD = { 'Calidad-1': 'var(--verde)', 'Calidad-2': '#f9a825', 'Calidad-3': 'var(--rojo)' };
 function formatValor(campo, valor) {
   if (valor === undefined || valor === null || valor === '') return '—';
   if (campo.type === 'parcela') { const p = DB.parcelas.find(x => x.id === valor); return p ? p.nombre : '—'; }
@@ -473,7 +474,12 @@ function entityTableHTML(key, headingTag) {
       html += `<tr onclick="${alPinchar}">`;
       cfg.listCols.forEach(colKey => {
         const campo = cfg.campos.find(c => c.key === colKey);
-        html += `<td>${formatValor(campo, item[colKey])}</td>`;
+        const val = formatValor(campo, item[colKey]);
+        if (key === 'producciones' && colKey === 'grado') {
+          html += `<td style="text-align:center;color:${COLOR_CALIDAD[item.calidad] || ''}">${val}</td>`;
+        } else {
+          html += `<td>${val}</td>`;
+        }
       });
       html += `<td><button class="btn-small btn-secondary" onclick="event.stopPropagation(); openForm('${key}','${item.id}')" title="Editar" aria-label="Editar">✏️</button></td></tr>`;
     });
