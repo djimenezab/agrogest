@@ -577,7 +577,8 @@ function renderDashboard() {
   if (!window._anioSel || !aniosArr.includes(window._anioSel)) window._anioSel = aniosArr[0];
   const anio = window._anioSel, anioPrev = anio - 1;
 
-  const sumaKg = a => scoped('producciones').filter(p => p.fecha && p.fecha.startsWith(String(a))).reduce((s, p) => s + (p.kg || 0), 0);
+  const esVina = pid => { const pa = DB.parcelas.find(x => x.id === pid); return pa && pa.tipo === 'Viña'; };
+  const sumaKg = a => scoped('producciones').filter(p => p.fecha && p.fecha.startsWith(String(a)) && esVina(p.parcela_id)).reduce((s, p) => s + (p.kg || 0), 0);
   const sumaImporte = (list, a) => list.filter(x => x.fecha && x.fecha.startsWith(String(a))).reduce((s, x) => s + (x.importe || 0), 0);
 
   const kg = sumaKg(anio), kgPrev = sumaKg(anioPrev);
@@ -622,7 +623,7 @@ function renderDashboard() {
   html += '</tbody></table></div></div>';
 
   const porCalidad = {};
-  scoped('producciones').filter(p => p.fecha && p.fecha.startsWith(String(anio))).forEach(p => {
+  scoped('producciones').filter(p => p.fecha && p.fecha.startsWith(String(anio)) && esVina(p.parcela_id)).forEach(p => {
     const c = p.calidad || 'Sin calidad';
     porCalidad[c] = (porCalidad[c] || 0) + (p.kg || 0);
   });
