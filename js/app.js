@@ -608,7 +608,7 @@ function renderDashboard() {
     <button class="btn-primary" onclick="openForm('producciones')">+ Registrar descarga</button>
   </div>
   <div class="grid-resumen">
-    <div class="stat"><div class="valor">${conMiles(kg)} kg</div><div class="etiqueta">Producción ${anio}</div>
+    <div class="stat"><div class="valor">${conMiles(kg)} kg</div><div class="etiqueta">Producción viña ${anio}</div>
       ${deltaKg !== null ? `<div class="delta ${deltaKg >= 0 ? 'up' : 'down'}">${deltaKg >= 0 ? '▲' : '▼'} ${Math.abs(deltaKg).toFixed(1)}% vs ${anioPrev}</div>` : ''}
     </div>
     <div class="stat"><div class="valor">${eur(gastos)}</div><div class="etiqueta">Gastos ${anio}</div></div>
