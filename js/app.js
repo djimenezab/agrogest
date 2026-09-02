@@ -5,6 +5,7 @@
 const DB_KEY = 'agrogest_db';
 const CFG_KEY = 'agrogest_cfg';
 const SOCIO_KEY = 'agrogest_socio_actual';
+const DIRTY_KEY = 'agrogest_pendiente_subir';
 
 const ENTIDADES = {
   parcelas: {
@@ -219,6 +220,8 @@ function loadConfig() {
   catch { return {}; }
 }
 function isConfigured() { return !!(CONFIG.token && CONFIG.owner && CONFIG.repo); }
+function hayPendienteSubir() { return localStorage.getItem(DIRTY_KEY) === '1'; }
+function marcarPendiente(v) { v ? localStorage.setItem(DIRTY_KEY, '1') : localStorage.removeItem(DIRTY_KEY); }
 
 // ---------- sincronización con GitHub ----------
 // estado: 'gray' sin configurar · 'amber' sincronizando · 'green' al día · 'red' error/sin conexión
@@ -271,11 +274,20 @@ async function pushToGitHub(mensaje) {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     SHA = json.content.sha;
+    marcarPendiente(false);
     setSyncStatus('Guardado ✓ ' + new Date().toLocaleTimeString('es-ES'), 'green');
   } catch (e) {
-    setSyncStatus('Guardado en local (sin conexión a GitHub)', 'red');
+    marcarPendiente(true);
+    setSyncStatus('Guardado en local, pendiente de subir a GitHub', 'red');
   }
 }
+// Reintenta subir los cambios que quedaron solo en local (p.ej. tras trabajar
+// sin conexión). Se llama al arrancar si hay pendientes, al recuperar
+// conexión, y desde el botón manual en Ajustes.
+function sincronizarPendientes() {
+  if (isConfigured() && hayPendienteSubir()) pushToGitHub('AgroGest: sincroniza cambios pendientes').then(() => { if (location.hash === '#/ajustes') renderAjustes(); });
+}
+window.addEventListener('online', sincronizarPendientes);
 
 // ---------- mutaciones de datos ----------
 function upsert(key, data, id) {
@@ -677,7 +689,9 @@ function renderAjustes() {
     <div class="ajustes-acciones">
       <button class="btn-primary" onclick="guardarConfig()">Guardar configuración</button>
       <button class="btn-secondary" onclick="pullFromGitHub(true)">Cargar ahora desde GitHub</button>
+      ${hayPendienteSubir() ? '<button class="btn-primary" onclick="sincronizarPendientes()">⬆ Subir cambios pendientes</button>' : ''}
     </div>
+    ${hayPendienteSubir() ? '<p class="ajustes-help" style="color:var(--rojo)">Hay cambios guardados solo en este dispositivo que aún no se han subido a GitHub.</p>' : ''}
     <p class="ajustes-help">El token se guarda solo en este dispositivo (localStorage); nunca se sube al repositorio.</p>
   </div>
   <div class="card">
@@ -762,6 +776,12 @@ async function init() {
   CONFIG = loadConfig();
   ACTIVE_SOCIO = localStorage.getItem(SOCIO_KEY) || null;
   render();
-  if (isConfigured()) await pullFromGitHub();
+  if (isConfigured()) {
+    // Si quedaron cambios sin subir (se guardaron solo en local por falta de
+    // conexión), se intentan subir antes de traer de GitHub; si no, se
+    // sobrescribirían con la versión remota más antigua y se perderían.
+    if (hayPendienteSubir()) sincronizarPendientes();
+    else await pullFromGitHub();
+  }
 }
 document.addEventListener('DOMContentLoaded', init);
