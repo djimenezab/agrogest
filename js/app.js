@@ -23,6 +23,8 @@ const ENTIDADES = {
       { key: 'superficie_ha', label: 'Superficie (ha)', colLabel: '(ha)', type: 'number', step: '0.01' },
       { key: 'num_plantas', label: 'Nº de cepas / árboles', colLabel: 'Nº', type: 'number', step: '1', miles: true },
       { key: 'anio_plantacion', label: 'Año de plantación', type: 'number', step: '1' },
+      { key: 'lat', label: 'Latitud (GPS)', type: 'number', step: '0.000001' },
+      { key: 'lon', label: 'Longitud (GPS)', type: 'number', step: '0.000001' },
       { key: 'notas', label: 'Notas', type: 'textarea' },
     ],
     listCols: ['nombre', 'poligono', 'num_parcela', 'tipo', 'variedad', 'superficie_ha', 'num_plantas'],
@@ -408,6 +410,41 @@ function verDetalleRegistro(key, id) {
   if (!dialog.open) dialog.showModal();
 }
 
+// ---------- geolocalización ----------
+function distanciaMetros(lat1, lon1, lat2, lon2) {
+  const R = 6371000, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function capturarPosicion(latInput, lonInput) {
+  if (!navigator.geolocation) { alert('Este dispositivo o navegador no soporta geolocalización.'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    latInput.value = pos.coords.latitude.toFixed(6);
+    lonInput.value = pos.coords.longitude.toFixed(6);
+  }, err => alert('No se pudo obtener tu posición: ' + err.message), { enableHighAccuracy: true, timeout: 15000 });
+}
+function detectarParcelaGPS(selectEl) {
+  if (!navigator.geolocation) { alert('Este dispositivo o navegador no soporta geolocalización.'); return; }
+  const conCoords = scoped('parcelas').filter(p => p.lat != null && p.lon != null);
+  if (conCoords.length === 0) {
+    alert('Ninguna parcela tiene guardada su posición GPS todavía. Ve a Parcelas, edita cada una estando allí y pulsa "Usar mi posición actual".');
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude, longitude } = pos.coords;
+    let mejor = null, mejorDist = Infinity;
+    conCoords.forEach(p => {
+      const d = distanciaMetros(latitude, longitude, p.lat, p.lon);
+      if (d < mejorDist) { mejorDist = d; mejor = p; }
+    });
+    selectEl.value = mejor.id;
+    selectEl.dispatchEvent(new Event('change'));
+    const aviso = mejorDist > 300 ? '\n(la parcela más cercana guardada está a bastante distancia; comprueba que sea la correcta)' : '';
+    alert(`Parcela detectada: ${mejor.nombre} (a ${Math.round(mejorDist)} m).${aviso}`);
+  }, err => alert('No se pudo obtener tu posición: ' + err.message), { enableHighAccuracy: true, timeout: 15000 });
+}
+
 function openForm(key, id) {
   const cfg = ENTIDADES[key];
   if (SOCIO_SCOPED.includes(key) && !ACTIVE_SOCIO) {
@@ -473,6 +510,23 @@ function openForm(key, id) {
 
     wrap.appendChild(input);
     form.appendChild(wrap);
+
+    // GPS: en la parcela, un botón para capturar su posición estando allí;
+    // en producción, un botón para detectar la parcela más cercana a la
+    // posición actual (por distancia al punto guardado de cada una, sin
+    // necesidad de dibujar límites).
+    if (key === 'parcelas' && campo.key === 'lon') {
+      const btnGps = document.createElement('button');
+      btnGps.type = 'button'; btnGps.className = 'btn-secondary'; btnGps.textContent = '📍 Usar mi posición actual';
+      btnGps.onclick = () => capturarPosicion(form.elements['lat'], form.elements['lon']);
+      wrap.appendChild(btnGps);
+    }
+    if (key === 'producciones' && campo.key === 'parcela_id') {
+      const btnDetect = document.createElement('button');
+      btnDetect.type = 'button'; btnDetect.className = 'btn-secondary'; btnDetect.textContent = '📍 Detectar parcela por GPS';
+      btnDetect.onclick = () => detectarParcelaGPS(form.elements['parcela_id']);
+      wrap.appendChild(btnDetect);
+    }
   });
 
   // Algunos campos (p.ej. grado, solo en viña) solo se muestran según el
