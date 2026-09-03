@@ -727,9 +727,6 @@ function renderDashboard() {
 function cambiarAnio(v) { window._anioSel = parseInt(v, 10); renderDashboard(); }
 
 // ---------- gráficas ----------
-// Por ahora, evolución del grado (Baumé/Brix) de las descargas de una
-// parcela a lo largo del tiempo. Cuando haya más histórico se pueden añadir
-// aquí gráficas de kilos por año, por parcela, etc.
 function formatFechaCorta(iso) { const [, m, d] = iso.split('-'); return `${d}/${m}`; }
 function renderGraficas() {
   const parcelas = scoped('parcelas');
@@ -742,14 +739,47 @@ function renderGraficas() {
     document.getElementById('app').innerHTML = html;
     return;
   }
+  const parcela = parcelas.find(p => p.id === window._graficaParcela);
   html += `<div class="toolbar">
     <label for="graficaParcelaSel">Parcela:</label>
     <select id="graficaParcelaSel" onchange="cambiarGraficaParcela(this.value)">
       ${parcelas.map(p => `<option value="${p.id}" ${p.id === window._graficaParcela ? 'selected' : ''}>${p.nombre}</option>`).join('')}
     </select>
   </div>
-  <div class="card"><h3>Evolución del grado</h3>${svgGradoParcela(window._graficaParcela)}</div>`;
+  <div class="card"><h3>Evolución del grado — ${parcela.nombre}</h3>${svgGradoParcela(window._graficaParcela)}</div>
+  <div class="card"><h3>Kilos por año — ${parcela.nombre}</h3>${svgKgPorAnio(scoped('producciones').filter(p => p.parcela_id === window._graficaParcela))}</div>
+  <div class="card"><h3>Kilos totales de viña por año</h3>${svgKgPorAnio(scoped('producciones').filter(p => esParcelaTipo(p.parcela_id, 'Viña')))}</div>`;
   document.getElementById('app').innerHTML = html;
+}
+function esParcelaTipo(pid, tipo) { const p = DB.parcelas.find(x => x.id === pid); return !!p && p.tipo === tipo; }
+// Gráfico de barras genérico: suma "kg" agrupando las producciones dadas por
+// año. Reutilizado tanto para una parcela concreta como para el total de viña.
+function svgKgPorAnio(producciones) {
+  const porAnio = {};
+  producciones.filter(p => p.fecha).forEach(p => { const a = p.fecha.slice(0, 4); porAnio[a] = (porAnio[a] || 0) + (p.kg || 0); });
+  const anios = Object.keys(porAnio).sort();
+  if (anios.length === 0) return `<div class="vacio">Sin producción registrada.</div>`;
+  return svgBarras(anios.map(a => ({ label: a, value: porAnio[a] })));
+}
+// Gráfico de barras genérico a partir de {label, value}, con las barras
+// ancladas a la línea base y el valor rotulado encima de cada una.
+function svgBarras(items) {
+  const W = 640, H = 280, padL = 46, padR = 16, padT = 16, padB = 34;
+  const max = Math.max(...items.map(i => i.value), 0) * 1.15 || 1;
+  const bandW = (W - padL - padR) / items.length;
+  const barW = Math.min(bandW * 0.6, 60);
+  const y = v => H - padB - v * (H - padT - padB) / max;
+  const barras = items.map((it, i) => {
+    const cx = padL + bandW * i + bandW / 2, yTop = y(it.value);
+    return `
+    <rect x="${cx - barW / 2}" y="${yTop}" width="${barW}" height="${H - padB - yTop}" rx="3" fill="var(--verde-oscuro)"><title>${it.label}: ${conMiles(it.value)} kg</title></rect>
+    <text x="${cx}" y="${yTop - 6}" font-size="10" text-anchor="middle" fill="var(--texto-suave)">${conMiles(it.value)}</text>
+    <text x="${cx}" y="${H - padB + 16}" font-size="10" text-anchor="middle" fill="var(--texto-suave)">${it.label}</text>`;
+  }).join('');
+  const ejeY = [0, max / 2, max].map(v => `
+    <line x1="${padL}" y1="${y(v)}" x2="${W - padR}" y2="${y(v)}" stroke="var(--borde)" stroke-width="1"/>
+    <text x="${padL - 6}" y="${y(v) + 3}" font-size="10" text-anchor="end" fill="var(--texto-suave)">${conMiles(Math.round(v))}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" class="grafica-svg" role="img" aria-label="Gráfico de barras">${ejeY}${barras}</svg>`;
 }
 function cambiarGraficaParcela(v) { window._graficaParcela = v; renderGraficas(); }
 function svgGradoParcela(pid) {
