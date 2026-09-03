@@ -139,6 +139,7 @@ const NAV = [
   { key: 'tratamientos', label: 'Sanidad', icon: '🧪' },
   { key: 'seguros', label: 'Seguros', icon: '🛡️' },
   { key: 'tareas', label: 'Tareas', icon: '✅' },
+  { key: 'graficas', label: 'Gráficas', icon: '📈' },
   { key: 'ajustes', label: 'Ajustes', icon: '⚙️' },
 ];
 
@@ -725,6 +726,68 @@ function renderDashboard() {
 }
 function cambiarAnio(v) { window._anioSel = parseInt(v, 10); renderDashboard(); }
 
+// ---------- gráficas ----------
+// Por ahora, evolución del grado (Baumé/Brix) de las descargas de una
+// parcela a lo largo del tiempo. Cuando haya más histórico se pueden añadir
+// aquí gráficas de kilos por año, por parcela, etc.
+function formatFechaCorta(iso) { const [, m, d] = iso.split('-'); return `${d}/${m}`; }
+function renderGraficas() {
+  const parcelas = scoped('parcelas');
+  if (!window._graficaParcela || !parcelas.some(p => p.id === window._graficaParcela)) {
+    window._graficaParcela = parcelas[0] ? parcelas[0].id : null;
+  }
+  let html = `<h1>📈 Gráficas</h1>`;
+  if (parcelas.length === 0) {
+    html += `<div class="vacio">Añade una parcela para ver sus gráficas.</div>`;
+    document.getElementById('app').innerHTML = html;
+    return;
+  }
+  html += `<div class="toolbar">
+    <label for="graficaParcelaSel">Parcela:</label>
+    <select id="graficaParcelaSel" onchange="cambiarGraficaParcela(this.value)">
+      ${parcelas.map(p => `<option value="${p.id}" ${p.id === window._graficaParcela ? 'selected' : ''}>${p.nombre}</option>`).join('')}
+    </select>
+  </div>
+  <div class="card"><h3>Evolución del grado</h3>${svgGradoParcela(window._graficaParcela)}</div>`;
+  document.getElementById('app').innerHTML = html;
+}
+function cambiarGraficaParcela(v) { window._graficaParcela = v; renderGraficas(); }
+function svgGradoParcela(pid) {
+  const datos = scoped('producciones')
+    .filter(p => p.parcela_id === pid && p.grado != null && p.fecha)
+    .sort((a, b) => (a.fecha + (a.hora || '')).localeCompare(b.fecha + (b.hora || '')));
+  if (datos.length === 0) return `<div class="vacio">Sin descargas con grado registrado para esta parcela.</div>`;
+  if (datos.length === 1) {
+    return `<div class="vacio">Solo hay una descarga con grado (${formatFecha(datos[0].fecha)}: ${datos[0].grado}º). Hace falta más de un dato para ver la evolución.</div>`;
+  }
+
+  const W = 640, H = 280, padL = 42, padR = 16, padT = 16, padB = 54;
+  const grados = datos.map(d => d.grado);
+  let min = Math.min(...grados), max = Math.max(...grados);
+  if (min === max) { min -= 1; max += 1; }
+  const margen = (max - min) * 0.1;
+  min -= margen; max += margen;
+  const x = i => padL + i * (W - padL - padR) / (datos.length - 1);
+  const y = v => H - padB - (v - min) * (H - padT - padB) / (max - min);
+
+  const puntos = datos.map((d, i) => `${x(i)},${y(d.grado)}`).join(' ');
+  const circulos = datos.map((d, i) => `
+    <circle cx="${x(i)}" cy="${y(d.grado)}" r="4" fill="var(--verde-oscuro)"><title>${formatFecha(d.fecha)}: ${d.grado}º</title></circle>
+    <text x="${x(i)}" y="${y(d.grado) - 10}" font-size="10" text-anchor="middle" fill="var(--texto-suave)">${d.grado}</text>`).join('');
+  const etiquetasX = datos.map((d, i) => `
+    <text x="${x(i)}" y="${H - padB + 16}" font-size="9" text-anchor="end" fill="var(--texto-suave)" transform="rotate(-45 ${x(i)} ${H - padB + 16})">${formatFechaCorta(d.fecha)}</text>`).join('');
+  const ejeY = [min, (min + max) / 2, max].map(v => `
+    <line x1="${padL}" y1="${y(v)}" x2="${W - padR}" y2="${y(v)}" stroke="var(--borde)" stroke-width="1"/>
+    <text x="${padL - 6}" y="${y(v) + 3}" font-size="10" text-anchor="end" fill="var(--texto-suave)">${v.toFixed(1)}</text>`).join('');
+
+  return `<svg viewBox="0 0 ${W} ${H}" class="grafica-svg" role="img" aria-label="Evolución del grado por fecha">
+    ${ejeY}
+    <polyline points="${puntos}" fill="none" stroke="var(--verde-oscuro)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${circulos}
+    ${etiquetasX}
+  </svg>`;
+}
+
 function renderAjustes() {
   const c = CONFIG;
   document.getElementById('app').innerHTML = `
@@ -818,6 +881,7 @@ function render() {
   renderSocioSelector();
   const key = location.hash.replace('#/', '') || 'inicio';
   if (key === 'inicio') renderDashboard();
+  else if (key === 'graficas') renderGraficas();
   else if (key === 'ajustes') renderAjustes();
   else if (ENTIDADES[key]) renderEntityList(key);
   else location.hash = '#/inicio';
